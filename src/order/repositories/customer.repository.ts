@@ -1,6 +1,6 @@
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Customer } from 'src/database/entities/customer.entity';
+import { Customer } from '../../database/entities/customer.entity';
 
 export class CustomerRepository {
   constructor(

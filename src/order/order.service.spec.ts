@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { OrderService } from './order.service';
 import { OrderRepository } from './repositories/order.repository';
+import { CustomerRepository } from './repositories/customer.repository';
 import { ExternalValidationService } from '../external/validation/external-validation.service';
 import { CreateOrderDto } from './dto/order.dto';
 import { Order, OrderStatus } from '../database/entities/order.entity';
@@ -9,6 +10,7 @@ import { PaginatedResult } from './dto/paginateResult.interface';
 describe('OrderService', () => {
   let service: OrderService;
   let orderRepository: jest.Mocked<OrderRepository>;
+  let customerRepository: jest.Mocked<CustomerRepository>;
   let externalValidationService: jest.Mocked<ExternalValidationService>;
 
   const mockOrder: Order = {
@@ -42,6 +44,11 @@ describe('OrderService', () => {
   };
 
   beforeEach(async () => {
+    const mockCustomerRepository = {
+      findOne: jest.fn(),
+      getOne: jest.fn(), // Added getOne method
+      exists: jest.fn(),
+    };
     const mockOrderRepository = {
       findOne: jest.fn(),
       findAll: jest.fn(),
@@ -58,6 +65,10 @@ describe('OrderService', () => {
       providers: [
         OrderService,
         {
+          provide: CustomerRepository,
+          useValue: mockCustomerRepository,
+        },
+        {
           provide: OrderRepository,
           useValue: mockOrderRepository,
         },
@@ -70,6 +81,7 @@ describe('OrderService', () => {
 
     service = module.get<OrderService>(OrderService);
     orderRepository = module.get(OrderRepository);
+    customerRepository = module.get(CustomerRepository);
     externalValidationService = module.get(ExternalValidationService);
   });
 
@@ -87,13 +99,13 @@ describe('OrderService', () => {
       expect(result).toEqual(mockOrder);
     });
 
-    it('should return null when order is not found', async () => {
+    it('should throw NotFoundException when order is not found', async () => {
       orderRepository.findOne.mockResolvedValue(null);
 
-      const result = await service.getOrderById(999);
-
+      await expect(service.getOrderById(999)).rejects.toThrow(
+        'Order not found',
+      );
       expect(orderRepository.findOne).toHaveBeenCalledWith(999);
-      expect(result).toBeNull();
     });
 
     it('should throw error when database operation fails', async () => {
@@ -153,6 +165,7 @@ describe('OrderService', () => {
     it('should create an order successfully with confirmed status', async () => {
       const createdOrder = { ...mockOrder, status: OrderStatus.CONFIRMED };
 
+      customerRepository.getOne.mockResolvedValue({ id: 1 } as any);
       orderRepository.create.mockResolvedValue(mockOrder);
       orderRepository.update.mockResolvedValue(createdOrder);
       externalValidationService.validateOrder.mockResolvedValue(
@@ -161,6 +174,7 @@ describe('OrderService', () => {
 
       const result = await service.createOrder(mockCreateOrderDto);
 
+      expect(customerRepository.getOne).toHaveBeenCalledWith(1);
       expect(orderRepository.create).toHaveBeenCalledWith(mockCreateOrderDto);
       expect(externalValidationService.validateOrder).toHaveBeenCalled();
       expect(orderRepository.update).toHaveBeenCalledWith(mockOrder.id, {
@@ -168,13 +182,14 @@ describe('OrderService', () => {
       });
       expect(result).toEqual({
         message: 'Order created successfully',
-        data: createdOrder,
+        data: mockOrder, // Note: returns mockOrder with status mutated
       });
     });
 
     it('should create an order successfully with cancelled status', async () => {
       const createdOrder = { ...mockOrder, status: OrderStatus.CANCELLED };
 
+      customerRepository.getOne.mockResolvedValue({ id: 1 } as any);
       orderRepository.create.mockResolvedValue(mockOrder);
       orderRepository.update.mockResolvedValue(createdOrder);
       externalValidationService.validateOrder.mockResolvedValue(
@@ -183,6 +198,7 @@ describe('OrderService', () => {
 
       const result = await service.createOrder(mockCreateOrderDto);
 
+      expect(customerRepository.getOne).toHaveBeenCalledWith(1);
       expect(orderRepository.create).toHaveBeenCalledWith(mockCreateOrderDto);
       expect(externalValidationService.validateOrder).toHaveBeenCalled();
       expect(orderRepository.update).toHaveBeenCalledWith(mockOrder.id, {
@@ -190,12 +206,22 @@ describe('OrderService', () => {
       });
       expect(result).toEqual({
         message: 'Order created successfully',
-        data: createdOrder,
+        data: mockOrder,
       });
+    });
+
+    it('should throw error when customer is not found', async () => {
+      customerRepository.getOne.mockResolvedValue(null);
+
+      await expect(service.createOrder(mockCreateOrderDto)).rejects.toThrow(
+        'Customer not found',
+      );
+      expect(orderRepository.create).not.toHaveBeenCalled();
     });
 
     it('should throw error when order creation fails', async () => {
       const error = new Error('Failed to create order');
+      customerRepository.getOne.mockResolvedValue({ id: 1 } as any);
       orderRepository.create.mockRejectedValue(error);
 
       await expect(service.createOrder(mockCreateOrderDto)).rejects.toThrow(
@@ -208,6 +234,7 @@ describe('OrderService', () => {
       const validationError = new Error(
         'External validation service unavailable',
       );
+      customerRepository.getOne.mockResolvedValue({ id: 1 } as any);
       orderRepository.create.mockResolvedValue(mockOrder);
       externalValidationService.validateOrder.mockRejectedValue(
         validationError,
@@ -222,6 +249,7 @@ describe('OrderService', () => {
 
     it('should throw error when order update fails', async () => {
       const updateError = new Error('Failed to update order status');
+      customerRepository.getOne.mockResolvedValue({ id: 1 } as any);
       orderRepository.create.mockResolvedValue(mockOrder);
       externalValidationService.validateOrder.mockResolvedValue(
         OrderStatus.CONFIRMED,
@@ -239,10 +267,12 @@ describe('OrderService', () => {
       const updateData = { quantity: 5, price: 150.0 };
       const updatedOrder = { ...mockOrder, ...updateData };
 
+      orderRepository.findOne.mockResolvedValue(mockOrder);
       orderRepository.update.mockResolvedValue(updatedOrder);
 
       const result = await service.update(1, updateData);
 
+      expect(orderRepository.findOne).toHaveBeenCalledWith(1);
       expect(orderRepository.update).toHaveBeenCalledWith(1, updateData);
       expect(result).toEqual(updatedOrder);
     });
@@ -251,25 +281,28 @@ describe('OrderService', () => {
       const updateData = { status: OrderStatus.CANCELLED };
       const updatedOrder = { ...mockOrder, status: OrderStatus.CANCELLED };
 
+      orderRepository.findOne.mockResolvedValue(mockOrder);
       orderRepository.update.mockResolvedValue(updatedOrder);
 
       const result = await service.update(1, updateData);
 
+      expect(orderRepository.findOne).toHaveBeenCalledWith(1);
       expect(orderRepository.update).toHaveBeenCalledWith(1, updateData);
       expect(result).toEqual(updatedOrder);
     });
 
-    it('should return null when order to update is not found', async () => {
-      orderRepository.update.mockResolvedValue(null);
+    it('should throw NotFoundException when order to update is not found', async () => {
+      orderRepository.findOne.mockResolvedValue(null);
 
-      const result = await service.update(999, { quantity: 5 });
-
-      expect(orderRepository.update).toHaveBeenCalledWith(999, { quantity: 5 });
-      expect(result).toBeNull();
+      await expect(service.update(999, { quantity: 5 })).rejects.toThrow(
+        'Order not found',
+      );
+      expect(orderRepository.update).not.toHaveBeenCalled();
     });
 
     it('should throw error when update operation fails', async () => {
       const error = new Error('Database update failed');
+      orderRepository.findOne.mockResolvedValue(mockOrder);
       orderRepository.update.mockRejectedValue(error);
 
       await expect(service.update(1, { quantity: 5 })).rejects.toThrow(
@@ -280,22 +313,26 @@ describe('OrderService', () => {
 
   describe('delete', () => {
     it('should delete an order successfully', async () => {
+      orderRepository.findOne.mockResolvedValue(mockOrder);
       orderRepository.delete.mockResolvedValue(true);
 
       const result = await service.delete(1);
 
+      expect(orderRepository.findOne).toHaveBeenCalledWith(1);
       expect(orderRepository.delete).toHaveBeenCalledWith(1);
       expect(result).toEqual({ message: 'Order deleted successfully' });
     });
 
     it('should throw error when order to delete is not found', async () => {
-      orderRepository.delete.mockRejectedValue(new Error('Order not found'));
+      orderRepository.findOne.mockResolvedValue(null);
 
       await expect(service.delete(999)).rejects.toThrow('Order not found');
+      expect(orderRepository.delete).not.toHaveBeenCalled();
     });
 
     it('should throw error when delete operation fails', async () => {
       const error = new Error('Database delete failed');
+      orderRepository.findOne.mockResolvedValue(mockOrder);
       orderRepository.delete.mockRejectedValue(error);
 
       await expect(service.delete(1)).rejects.toThrow('Database delete failed');

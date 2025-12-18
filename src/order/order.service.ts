@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { OrderRepository } from './repositories/order.repository';
 import { CustomerRepository } from './repositories/customer.repository';
@@ -11,6 +11,7 @@ import { ExternalValidationService } from '../external/validation/external-valid
 
 @Injectable()
 export class OrderService {
+  private readonly logger = new Logger(OrderService.name);
   constructor(
     private readonly orderRepository: OrderRepository,
     private readonly customerRepository: CustomerRepository,
@@ -54,12 +55,22 @@ export class OrderService {
       const validationStatus =
         await this.externalValidationService.validateOrder();
       order.status = validationStatus;
+      this.logger.log({
+        context: 'validationOrder',
+        message: `Order created with ID: ${order.id}`,
+        status: validationStatus,
+      });
       await this.orderRepository.update(order.id, { status: validationStatus });
       return {
         message: 'Order created successfully',
         data: order,
       };
     } catch (error) {
+      this.logger.error({
+        context: 'CreateOrder',
+        error: error.message,
+        stack: error.stack,
+      });
       throw error;
     }
   }
@@ -75,6 +86,11 @@ export class OrderService {
       }
       return await this.orderRepository.update(id, updateOrderDto);
     } catch (error) {
+      this.logger.error({
+        context: 'updateOrder',
+        error: error.message,
+        stack: error.stack,
+      });
       throw error;
     }
   }
@@ -88,6 +104,11 @@ export class OrderService {
       await this.orderRepository.delete(id);
       return { message: 'Order deleted successfully' };
     } catch (error) {
+      this.logger.error({
+        context: 'DeleteOrder',
+        error: error.message,
+        stack: error.stack,
+      });
       throw error;
     }
   }

@@ -15,5 +15,19 @@ services:
       - mysql_data:/var/lib/mysql
     restart: unless-stopped
 
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: order-management-phpmyadmin
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: rootpassword
+    ports:
+      - "8080:80"
+    depends_on:
+      - db
+    restart: unless-stopped
+
 volumes:
   mysql_data:

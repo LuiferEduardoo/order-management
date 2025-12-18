@@ -14,6 +14,10 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
@@ -27,6 +31,25 @@ services:
       - "8080:80"
     depends_on:
       - db
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: order-management-app
+    environment:
+      PORT: 3000
+      DB_PASSWORD: order_password
+      DB_USER: order_user
+      DB_PORT: 3306
+      DB_HOST: db
+      DB_NAME: order_management
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

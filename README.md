@@ -21,15 +21,13 @@ Una API RESTful para la gestión de órdenes construida con NestJS, TypeScript y
 ### Principios de Diseño Aplicados
 
 #### 1. Arquitectura Hexagonal
-Separación clara entre dominio, aplicación e infraestructura:
+Separación clara entre logica de negocio y y base de datos:
 
 ```
 src/
-├── modules/
-│   └── orders/
-│       ├── domain/          # Entidades y lógica de negocio
-│       ├── application/     # Casos de uso
-│       └── infrastructure/  # Implementaciones concretas
+├── database/
+├── orders
+│   └── repositories/
 ```
 
 #### 2. SOLID Principles
@@ -46,14 +44,20 @@ Validación y transformación de datos usando `class-validator` y `class-transfo
 
 ```typescript
 export class CreateOrderDto {
-  @IsString()
-  @IsNotEmpty()
-  customer: string;
+    @IsNumber()
+  customerId: number;
 
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => OrderItemDto)
-  items: OrderItemDto[];
+  @IsString()
+  sku: string;
+
+  @IsNumber()
+  quantity: number;
+
+  @IsNumber()
+  price: number;
+
+  @IsNumber()
+  totalAmount: number;
 }
 ```
 
@@ -65,7 +69,6 @@ export class CreateOrderDto {
 - Soft delete para mantener historial
 - Migraciones de base de datos
 - Testing unitario y de integración
-- Documentación con Swagger
 - Variables de entorno configurables
 - Logging estructurado
 
@@ -79,7 +82,7 @@ export class CreateOrderDto {
 
 1. **Clonar el repositorio**
 ```bash
-git clone <repository-url>
+git clone https://github.com/LuiferEduardoo/order-management
 cd order-management-api
 ```
 
@@ -102,7 +105,6 @@ DB_NAME=order_management
 
 # Application
 PORT=3000
-NODE_ENV=development
 ```
 
 4. **Crear la base de datos**
@@ -142,11 +144,6 @@ La API estará disponible en `http://localhost:3000`
 npm run test
 ```
 
-### Tests e2e
-```bash
-npm run test:e2e
-```
-
 ### Cobertura de tests
 ```bash
 npm run test:cov
@@ -162,14 +159,11 @@ POST /orders
 Content-Type: application/json
 
 {
-  "customer": "John Doe",
-  "items": [
-    {
-      "productName": "Product 1",
-      "quantity": 2,
-      "price": 29.99
-    }
-  ]
+  "customerId": 1,
+  "sku": "SKU-ORD-94821",
+  "quantity": 3,
+  "price": 49900,
+  "totalAmount": 149700
 }
 ```
 
@@ -185,11 +179,11 @@ GET /orders/:id
 
 #### Actualizar una orden
 ```http
-PATCH /orders/:id
+PUT /orders/:id
 Content-Type: application/json
 
 {
-  "customer": "Jane Doe"
+  "quantity": 4,
 }
 ```
 
@@ -198,48 +192,55 @@ Content-Type: application/json
 DELETE /orders/:id
 ```
 
-## Documentación API
-
-La documentación interactiva de Swagger está disponible en:
-
-```
-http://localhost:3000/api
-```
-
-## 🗄️ Estructura de la Base de Datos
+## Estructura de la Base de Datos
 
 ### Tabla: orders
 ```sql
-CREATE TABLE orders (
-  id UUID PRIMARY KEY,
-  customer VARCHAR(255) NOT NULL,
-  total DECIMAL(10,2) NOT NULL,
-  status VARCHAR(50) NOT NULL DEFAULT 'pending',
-  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-  deleted_at TIMESTAMP NULL
-);
+  CREATE TABLE `order` (
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `customer_id` INT NOT NULL,
+
+    `sku` VARCHAR(255) NOT NULL,
+    `quantity` INT NOT NULL,
+    `price` DECIMAL(10,2) NOT NULL,
+    `total_amount` DECIMAL(10,2) NOT NULL,
+
+    `status` ENUM('PENDING', 'CONFIRMED', 'CANCELLED') NOT NULL DEFAULT 'PENDING',
+
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `deleted_at` TIMESTAMP NULL DEFAULT NULL,
+
+    PRIMARY KEY (`id`),
+    CONSTRAINT `fk_order_customer`
+      FOREIGN KEY (`customer_id`)
+      REFERENCES `customer` (`id`)
+  ) ENGINE=InnoDB;
 ```
 
-### Tabla: order_items
+### Tabla: customer
 ```sql
-CREATE TABLE order_items (
-  id UUID PRIMARY KEY,
-  order_id UUID NOT NULL,
-  product_name VARCHAR(255) NOT NULL,
-  quantity INTEGER NOT NULL,
-  price DECIMAL(10,2) NOT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
-);
+  CREATE TABLE `customer` (
+    `id` INT NOT NULL AUTO_INCREMENT,
+
+    `name` VARCHAR(255) NOT NULL,
+    `email` VARCHAR(255) NOT NULL,
+    `phone` VARCHAR(255) NULL,
+    `address` VARCHAR(255) NULL,
+
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `deleted_at` TIMESTAMP NULL DEFAULT NULL,
+
+    PRIMARY KEY (`id`)
+  ) ENGINE=InnoDB;
 ```
 
 ## Migraciones
 
 ### Crear una nueva migración
 ```bash
-npm run migration:create -- src/migrations/MigrationName
+npm run migration:generate src/dabatase/migrations/MigrationName
 ```
 
 ### Ejecutar migraciones pendientes
@@ -257,48 +258,6 @@ npm run migration:revert
 npm run migration:show
 ```
 
-## Estructura del Proyecto
-
-```
-order-management-api/
-├── src/
-│   ├── modules/
-│   │   └── orders/
-│   │       ├── domain/
-│   │       │   ├── entities/
-│   │       │   │   ├── order.entity.ts
-│   │       │   │   └── order-item.entity.ts
-│   │       │   └── interfaces/
-│   │       ├── application/
-│   │       │   ├── dto/
-│   │       │   │   ├── create-order.dto.ts
-│   │       │   │   └── update-order.dto.ts
-│   │       │   └── services/
-│   │       │       └── orders.service.ts
-│   │       ├── infrastructure/
-│   │       │   └── controllers/
-│   │       │       └── orders.controller.ts
-│   │       └── orders.module.ts
-│   ├── common/
-│   │   ├── filters/
-│   │   ├── interceptors/
-│   │   └── pipes/
-│   ├── config/
-│   │   └── database.config.ts
-│   ├── migrations/
-│   ├── app.module.ts
-│   └── main.ts
-├── test/
-│   ├── unit/
-│   └── e2e/
-├── .env.example
-├── .gitignore
-├── nest-cli.json
-├── package.json
-├── tsconfig.json
-└── README.md
-```
-
 ## Manejo de Errores
 
 La API implementa un sistema de manejo de errores centralizado:
@@ -307,7 +266,7 @@ La API implementa un sistema de manejo de errores centralizado:
 // Ejemplo de error de validación
 {
   "statusCode": 400,
-  "message": ["customer should not be empty"],
+  "message": ["customerId should not be empty"],
   "error": "Bad Request"
 }
 
@@ -335,19 +294,29 @@ La API implementa un sistema de manejo de errores centralizado:
 ### Docker
 
 ```dockerfile
-FROM node:16-alpine
+# Usa una imagen oficial de Node.js 22 como imagen base
+FROM node:22-alpine
 
+# Establece el directorio de trabajo en el contenedor
 WORKDIR /app
 
+# Copia el package.json y el package-lock.json para instalar dependencias
 COPY package*.json ./
-RUN npm ci --only=production
 
+# Instala las dependencias
+RUN npm install
+
+# Copia el resto del código de la aplicación al contenedor
 COPY . .
+
+# Compila el proyecto NestJS
 RUN npm run build
 
+# Expone el puerto que usa la aplicación
 EXPOSE 3000
 
-CMD ["node", "dist/main"]
+# Comando para iniciar la aplicación
+CMD ["npm", "run", "deploy"]
 ```
 
 ### Docker Compose
@@ -356,30 +325,59 @@ CMD ["node", "dist/main"]
 version: '3.8'
 
 services:
-  app:
-    build: .
-    ports:
-      - "3000:3000"
+  db:
+    image: mysql:8.0
+    container_name: order-management-db
     environment:
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_USERNAME=postgres
-      - DB_PASSWORD=postgres
-      - DB_NAME=order_management
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: order_management
+      MYSQL_USER: order_user
+      MYSQL_PASSWORD: order_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: order-management-phpmyadmin
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: rootpassword
+    ports:
+      - "8080:80"
     depends_on:
       - db
+    restart: unless-stopped
 
-  db:
-    image: postgres:13
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: order-management-app
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=order_management
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      PORT: 3000
+      DB_PASSWORD: order_password
+      DB_USER: order_user
+      DB_PORT: 3306
+      DB_HOST: db
+      DB_NAME: order_management
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
-  postgres_data:
+  mysql_data:
 ```
 
 ## Mejoras Futuras
@@ -387,7 +385,6 @@ volumes:
 - [ ] Implementar autenticación JWT
 - [ ] Agregar rate limiting
 - [ ] Implementar caché con Redis
-- [ ] Agregar paginación a los endpoints
 - [ ] Implementar eventos y mensajería
 - [ ] Agregar healthchecks
 - [ ] Implementar logging avanzado con Winston

@@ -2,10 +2,14 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  ManyToOne,
+  JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
   DeleteDateColumn,
 } from 'typeorm';
+
+import { Customer } from './customer.entity';
 
 export enum OrderStatus {
   PENDING = 'PENDING',
@@ -26,6 +30,9 @@ export class Order {
 
   @Column({ name: 'customer_id' })
   customerId: number;
+  @ManyToOne(() => Customer)
+  @JoinColumn({ name: 'customer_id' })
+  customer: Customer;
 
   @Column()
   sku: string;

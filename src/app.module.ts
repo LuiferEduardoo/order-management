@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { DatabaseModule } from './database/database.module';
 import { OrderModule } from './order/order.module';
+import { ExternalModule } from './external/external.module';
 
 import config from './config/config';
 
@@ -14,6 +15,7 @@ import config from './config/config';
     }),
     DatabaseModule,
     OrderModule,
+    ExternalModule,
   ],
 })
 export class AppModule {}

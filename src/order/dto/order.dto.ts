@@ -1,4 +1,7 @@
+import { PartialType } from '@nestjs/mapped-types';
+
 import { IsNumber, IsString, IsOptional, IsEnum } from 'class-validator';
+
 import { OrderStatus } from 'src/database/entities/order.entity';
 
 export class CreateOrderDto {
@@ -16,10 +19,10 @@ export class CreateOrderDto {
 
   @IsNumber()
   totalAmount: number;
+}
 
+export class UpdateOrderDto extends PartialType(CreateOrderDto) {
   @IsOptional()
   @IsEnum(OrderStatus)
   status?: OrderStatus;
 }
-
-export class UpdateOrderDto implements Partial<CreateOrderDto> {}

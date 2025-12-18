@@ -6,7 +6,7 @@ import { Repository } from 'typeorm';
 import { CreateOrderDto, UpdateOrderDto } from '../dto/order.dto';
 import { PaginationDto } from '../dto/paginatio.dto';
 import { PaginatedResult } from '../dto/paginateResult.interface';
-import { Order, OrderStatus } from 'src/database/entities/order.entity';
+import { Order } from 'src/database/entities/order.entity';
 
 @Injectable()
 export class OrderRepository {
@@ -98,63 +98,5 @@ export class OrderRepository {
   async restore(id: number): Promise<boolean> {
     const result = await this.repository.restore(id);
     return result.affected > 0;
-  }
-
-  /**
-   * Buscar órdenes por customerId con paginación
-   */
-  async findByCustomerId(
-    customerId: number,
-    paginationDto: PaginationDto = {},
-  ): Promise<PaginatedResult<Order>> {
-    const page = paginationDto.page || 1;
-    const limit = paginationDto.limit || 10;
-    const skip = (page - 1) * limit;
-
-    const [data, total] = await this.repository.findAndCount({
-      where: { customerId },
-      skip,
-      take: limit,
-      order: {
-        createdAt: 'DESC',
-      },
-    });
-
-    return {
-      data,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
-  }
-
-  /**
-   * Buscar órdenes por estado con paginación
-   */
-  async findByStatus(
-    status: OrderStatus,
-    paginationDto: PaginationDto = {},
-  ): Promise<PaginatedResult<Order>> {
-    const page = paginationDto.page || 1;
-    const limit = paginationDto.limit || 10;
-    const skip = (page - 1) * limit;
-
-    const [data, total] = await this.repository.findAndCount({
-      where: { status },
-      skip,
-      take: limit,
-      order: {
-        createdAt: 'DESC',
-      },
-    });
-
-    return {
-      data,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
   }
 }

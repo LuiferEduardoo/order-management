@@ -6,7 +6,7 @@ import { Repository } from 'typeorm';
 import { CreateOrderDto, UpdateOrderDto } from '../dto/order.dto';
 import { PaginationDto } from '../dto/paginatio.dto';
 import { PaginatedResult } from '../dto/paginateResult.interface';
-import { Order } from 'src/database/entities/order.entity';
+import { Order } from '../../database/entities/order.entity';
 
 @Injectable()
 export class OrderRepository {

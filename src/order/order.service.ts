@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 
 import { OrderRepository } from './repositories/order.repository';
-import { CreateOrderDto } from './dto/order.dto';
+import { CreateOrderDto, UpdateOrderDto } from './dto/order.dto';
 import ResponseCreateOrder from './dto/responseCreateOrder.interface';
 import { PaginatedResult } from './dto/paginateResult.interface';
-import { Order } from 'src/database/entities/order.entity';
+import { Order } from '../database/entities/order.entity';
 import ResponseDeleteOrder from './dto/responseDeleteOrder.interface';
-import { ExternalValidationService } from 'src/external/validation/external-validation.service';
+import { ExternalValidationService } from '../external/validation/external-validation.service';
 
 @Injectable()
 export class OrderService {
@@ -40,6 +40,7 @@ export class OrderService {
       const order = await this.orderRepository.create(createOrderDto);
       const validationStatus =
         await this.externalValidationService.validateOrder();
+      order.status = validationStatus;
       await this.orderRepository.update(order.id, { status: validationStatus });
       return {
         message: 'Order created successfully',
@@ -52,7 +53,7 @@ export class OrderService {
 
   async update(
     id: number,
-    updateOrderDto: Partial<CreateOrderDto>,
+    updateOrderDto: Partial<UpdateOrderDto>,
   ): Promise<Order> {
     try {
       return await this.orderRepository.update(id, updateOrderDto);

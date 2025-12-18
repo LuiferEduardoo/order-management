@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import { OrderStatus } from 'src/database/entities/order.entity';
+import { OrderStatus } from '../../database/entities/order.entity';
 
 @Injectable()
 export class ExternalValidationService {

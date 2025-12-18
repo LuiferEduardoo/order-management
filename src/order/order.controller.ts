@@ -6,6 +6,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 
 import { OrderService } from './order.service';
@@ -22,7 +23,7 @@ export class OrderController {
   }
 
   @Get('')
-  async getAllOrders(@Param() pagination: PaginationDto) {
+  async getAllOrders(@Query() pagination: PaginationDto) {
     const { page = 1, limit = 10 } = pagination;
     return this.orderService.getAllOrders(page, limit);
   }

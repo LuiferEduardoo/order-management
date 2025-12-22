@@ -75,7 +75,6 @@ export class CreateOrderDto {
 ## Requisitos Previos
 
 - Node.js >= 16
-- PostgreSQL >= 13
 - npm o yarn
 
 ## Instalación
